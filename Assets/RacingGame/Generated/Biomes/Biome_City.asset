@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f9b68714f11286438c435189749add1, type: 3}
+  m_Name: Biome_City
+  m_EditorClassIdentifier: Assembly-CSharp::RoadBiomeData
+  biomeIndex: 0
+  biomeName: City
+  roadPrefab: {fileID: 2656238261735708236, guid: 958bb6b6bb84aa146a038fa3d93a81c7, type: 3}
+  skyColorTop: {r: 0.18, g: 0.45, b: 0.95, a: 1}
+  skyColorHorizon: {r: 0.85, g: 0.92, b: 1, a: 1}
+  fogColor: {r: 0.55, g: 0.62, b: 0.75, a: 1}
+  fogDensityStart: 140
+  spawnWeight: 0.45
+  isHighway: 0
+  isBridge: 0
+  obstacleSets: []

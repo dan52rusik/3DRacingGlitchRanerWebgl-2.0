@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f9b68714f11286438c435189749add1, type: 3}
+  m_Name: Biome_Night
+  m_EditorClassIdentifier: Assembly-CSharp::RoadBiomeData
+  biomeIndex: 2
+  biomeName: Night
+  roadPrefab: {fileID: 2656238261735708236, guid: 958bb6b6bb84aa146a038fa3d93a81c7, type: 3}
+  skyColorTop: {r: 0.05, g: 0.08, b: 0.2, a: 1}
+  skyColorHorizon: {r: 0.18, g: 0.24, b: 0.38, a: 1}
+  fogColor: {r: 0.12, g: 0.16, b: 0.25, a: 1}
+  fogDensityStart: 140
+  spawnWeight: 0.2
+  isHighway: 0
+  isBridge: 0
+  obstacleSets: []
