@@ -99,49 +99,25 @@ namespace GlitchRacer
 
         private static RunnerPlayer CreatePlayer()
         {
-            GameObject playerRoot = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            playerRoot.name = "VirusCar";
+            GameObject playerRoot = new("VirusCar");
             playerRoot.transform.position = new Vector3(0f, 0.95f, 0f);
-            playerRoot.transform.localScale = new Vector3(1.8f, 1.1f, 3.2f);
-            playerRoot.GetComponent<Renderer>().material.color = new Color(0.08f, 0.95f, 0.78f);
+            playerRoot.transform.localScale = Vector3.one;
 
             Rigidbody body = playerRoot.AddComponent<Rigidbody>();
             body.isKinematic = true;
             body.useGravity = false;
 
-            BoxCollider collider = playerRoot.GetComponent<BoxCollider>();
-            collider.size = new Vector3(0.95f, 0.95f, 0.95f);
+            BoxCollider collider = playerRoot.AddComponent<BoxCollider>();
+            collider.size = new Vector3(1f, 0.8f, 2f);
+            collider.center = new Vector3(0f, 0.05f, 0f);
 
-            GameObject cabin = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            cabin.name = "Cabin";
-            cabin.transform.SetParent(playerRoot.transform, false);
-            cabin.transform.localPosition = new Vector3(0f, 0.55f, -0.1f);
-            cabin.transform.localScale = new Vector3(0.7f, 0.5f, 0.45f);
-            cabin.GetComponent<Renderer>().material.color = new Color(0.6f, 0.96f, 1f);
-            RemoveCollider(cabin);
+            Transform visualRoot = HoverCarFactory.RebuildVisual(playerRoot.transform, "VirusCarVisual");
+            HoverCarVisual visual = playerRoot.AddComponent<HoverCarVisual>();
+            visual.Configure(visualRoot);
 
             RunnerPlayer runnerPlayer = playerRoot.AddComponent<RunnerPlayer>();
             playerRoot.AddComponent<VirusCarEffects>();
             return runnerPlayer;
-        }
-
-        private static void RemoveCollider(GameObject target)
-        {
-            Collider collider = target.GetComponent<Collider>();
-            if (collider == null)
-            {
-                return;
-            }
-
-#if UNITY_EDITOR
-            if (!Application.isPlaying)
-            {
-                Object.DestroyImmediate(collider);
-                return;
-            }
-#endif
-
-            Object.Destroy(collider);
         }
     }
 }
