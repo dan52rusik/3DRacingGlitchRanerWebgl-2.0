@@ -38,6 +38,7 @@ public static class RacingGameSceneBaker
         ConfigureRoadManager(roadManager, biomes, settings, deletionAnchor);
         ConfigureObstacleSpawner(obstacleSpawner, biomes);
         ConfigureBiomeVisual(biomeVisual, RenderSettings.skybox, settings.biomeTransitionTime);
+        BakeInitialRoads(systems.transform, roadManager, biomes);
 
         var labels = EnsureHud(hud);
         var distanceTracker = GetOrAddComponent<DistanceTracker>(hud);
@@ -270,6 +271,44 @@ public static class RacingGameSceneBaker
         serializedObject.FindProperty("speedLabel").objectReferenceValue = speedLabel;
         serializedObject.ApplyModifiedPropertiesWithoutUndo();
         EditorUtility.SetDirty(tracker);
+    }
+
+    private static void BakeInitialRoads(Transform systemsRoot, RoadManager roadManager, List<RoadBiomeData> biomes)
+    {
+        for (int i = systemsRoot.childCount - 1; i >= 0; i--)
+        {
+            Transform child = systemsRoot.GetChild(i);
+            if (child.GetComponent<Road>() != null)
+                Object.DestroyImmediate(child.gameObject);
+        }
+
+        int platformCount = new SerializedObject(roadManager).FindProperty("maxPlatforms").intValue;
+        if (biomes.Count == 0) return;
+
+        float currentZ = 0f;
+
+        for (int i = 0; i < platformCount; i++)
+        {
+            var biome = biomes[i % biomes.Count];
+            if (biome == null || biome.roadPrefab == null) continue;
+
+            GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(biome.roadPrefab, systemsRoot);
+            instance.name = $"Road_{i:00}_{biome.biomeName}";
+
+            var road = instance.GetComponent<Road>();
+            if (road == null) continue;
+
+            float length = ResolveRoadLength(road);
+            instance.transform.position = new Vector3(0f, 0f, currentZ);
+            road.ConfigureForBake(biome.biomeIndex, length);
+            currentZ += length;
+        }
+    }
+
+    private static float ResolveRoadLength(Road road)
+    {
+        var renderer = road.GetComponentInChildren<Renderer>();
+        return renderer != null ? renderer.bounds.size.z : 24f;
     }
 
     private static void SetObjectReferenceArray(SerializedProperty property, List<RoadBiomeData> values)

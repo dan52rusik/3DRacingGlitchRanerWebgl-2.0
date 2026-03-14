@@ -48,8 +48,8 @@ public class RoadManager : MonoBehaviour
         TryInitialize();
         if (!_initialized) return;
 
-        // Стартовый набор — без учёта прогресса
-        for (int i = 0; i < maxPlatforms; i++)
+        // Добираем только недостающие стартовые платформы.
+        for (int i = _active.Count; i < maxPlatforms; i++)
             SpawnRoad(countProgress: false);
     }
 
@@ -182,7 +182,32 @@ public class RoadManager : MonoBehaviour
 
         InitPools();
         _biomeCtrl = new BiomeController(biomes, biomeSettings);
+        RegisterExistingRoads();
         _initialized = true;
+    }
+
+    private void RegisterExistingRoads()
+    {
+        _active.Clear();
+        _totalSpawnedLength = 0f;
+
+        var roads = GetComponentsInChildren<Road>(includeInactive: true);
+        if (roads == null || roads.Length == 0) return;
+
+        System.Array.Sort(roads, (a, b) => a.transform.position.z.CompareTo(b.transform.position.z));
+
+        foreach (var road in roads)
+        {
+            if (road == null) continue;
+            if (!_pools.TryGetValue(road.BiomeIndex, out var pool)) continue;
+
+            road.transform.SetParent(transform);
+            road.gameObject.SetActive(true);
+            road.Initialize(pool, road.BiomeIndex);
+            _active.AddLast(road);
+            _totalSpawnedLength += road.Length;
+            _currentBiomeIndex = road.BiomeIndex;
+        }
     }
 
     // ── Editor Gizmos ──────────────────────────────────────────

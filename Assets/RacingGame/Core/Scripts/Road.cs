@@ -31,6 +31,14 @@ public class Road : MonoBehaviour
         }
     }
 
+#if UNITY_EDITOR
+    public void ConfigureForBake(int biomeIndex, float length)
+    {
+        BiomeIndex = biomeIndex;
+        Length = length;
+    }
+#endif
+
     // ── Возврат в пул ──────────────────────────────────────────
     public void Recycle()
     {
