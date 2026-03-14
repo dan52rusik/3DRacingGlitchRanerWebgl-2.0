@@ -1,27 +1,21 @@
-// ═══════════════════════════════════════════════════════════════
-//  ObstacleSpawner.cs  —  Процедурный спавн препятствий
-//
-//  • Слушает GameEventBus.OnRoadSpawned
-//  • Выбирает паттерн на основе DifficultyManager.DifficultyLevel
-//  • Использует простой GameObject пул для препятствий
-//  • Препятствия — дети платформы, умирают вместе с ней
-// ═══════════════════════════════════════════════════════════════
 using System.Collections.Generic;
 using UnityEngine;
 
 public class ObstacleSpawner : MonoBehaviour
 {
-    [SerializeField] private List<RoadBiomeData> biomes; // те же данные что у RoadManager
+    [SerializeField] private List<RoadBiomeData> biomes;
+    [SerializeField] private float fallbackSpawnChance = 0.45f;
+    [SerializeField] private float laneOffset = 2.4f;
 
-    private Dictionary<GameObject, Queue<GameObject>> _obstaclePool
-        = new Dictionary<GameObject, Queue<GameObject>>();
+    private readonly Dictionary<GameObject, Queue<GameObject>> _obstaclePool = new Dictionary<GameObject, Queue<GameObject>>();
+    private readonly List<GameObject> _runtimeFallbackPrefabs = new List<GameObject>();
 
-    void Awake()
+    private void Awake()
     {
         GameEventBus.OnRoadSpawned += OnRoadSpawned;
     }
 
-    void OnDestroy()
+    private void OnDestroy()
     {
         GameEventBus.OnRoadSpawned -= OnRoadSpawned;
     }
@@ -31,73 +25,130 @@ public class ObstacleSpawner : MonoBehaviour
         biomes = configuredBiomes;
     }
 
-    // ── Обработчик ────────────────────────────────────────────
     private void OnRoadSpawned(Road road)
     {
-        var biomeData = FindBiomeData(road.BiomeIndex);
-        if (biomeData == null || biomeData.obstacleSets == null) return;
+        if (road.transform.position.z < 30f)
+            return;
+
+        RoadBiomeData biomeData = FindBiomeData(road.BiomeIndex);
+        if (TrySpawnConfiguredObstacle(road, biomeData))
+            return;
+
+        TrySpawnFallbackObstacle(road);
+    }
+
+    private bool TrySpawnConfiguredObstacle(Road road, RoadBiomeData biomeData)
+    {
+        if (biomeData == null || biomeData.obstacleSets == null)
+            return false;
 
         int diff = DifficultyManager.DifficultyLevel;
 
-        foreach (var set in biomeData.obstacleSets)
+        foreach (ObstacleSetData set in biomeData.obstacleSets)
         {
-            if (set == null) continue;
-            if (diff < set.minDifficultyLevel) continue;
-            if (set.patterns == null || set.patterns.Length == 0) continue;
-            if (Random.value > set.spawnChance) continue;
+            if (set == null || diff < set.minDifficultyLevel)
+                continue;
 
-            // Выбираем случайный паттерн
-            var pattern = set.patterns[Random.Range(0, set.patterns.Length)];
-            SpawnObstacle(pattern, road.transform);
-            break; // Одно препятствие на платформу (можно убрать для хаоса)
+            if (set.patterns == null || set.patterns.Length == 0 || Random.value > set.spawnChance)
+                continue;
+
+            GameObject pattern = set.patterns[Random.Range(0, set.patterns.Length)];
+            SpawnObstacle(pattern, road.transform, Vector3.zero, Quaternion.identity);
+            return true;
         }
+
+        return false;
     }
 
-    // ── Спавн с пулингом ──────────────────────────────────────
-    private void SpawnObstacle(GameObject prefab, Transform parent)
+    private void TrySpawnFallbackObstacle(Road road)
     {
-        if (!_obstaclePool.ContainsKey(prefab))
-            _obstaclePool[prefab] = new Queue<GameObject>();
+        if (Random.value > fallbackSpawnChance)
+            return;
 
-        GameObject obj;
-        var queue = _obstaclePool[prefab];
+        int obstacleCount = Random.value > 0.72f ? 2 : 1;
+        int startLane = Random.Range(0, 3);
 
-        if (queue.Count > 0)
+        for (int i = 0; i < obstacleCount; i++)
         {
-            obj = queue.Dequeue();
-            obj.SetActive(true);
+            int lane = (startLane + i) % 3;
+            GameObject prefab = GetFallbackPrefab(lane);
+            Vector3 localPosition = new Vector3((lane - 1) * laneOffset, 0.7f, Random.Range(-2f, 7f));
+            SpawnObstacle(prefab, road.transform, localPosition, Quaternion.Euler(0f, Random.Range(-18f, 18f), 0f));
         }
-        else
-        {
-            obj = Instantiate(prefab);
-        }
-
-        // Крепим к платформе — уедет вместе с ней
-        obj.transform.SetParent(parent);
-        obj.transform.localPosition = Vector3.zero;
-        obj.transform.localRotation = Quaternion.identity;
-
-        // Когда платформа умрёт — препятствие вернётся в пул
-        // (через Obstacle.cs, см. ниже)
     }
 
-    // ── Возврат в пул ─────────────────────────────────────────
+    private void SpawnObstacle(GameObject prefab, Transform parent, Vector3 localPosition, Quaternion localRotation)
+    {
+        if (!_obstaclePool.TryGetValue(prefab, out Queue<GameObject> queue))
+        {
+            queue = new Queue<GameObject>();
+            _obstaclePool[prefab] = queue;
+        }
+
+        GameObject obj = queue.Count > 0 ? queue.Dequeue() : Instantiate(prefab);
+        obj.SetActive(true);
+        obj.transform.SetParent(parent, false);
+        obj.transform.localPosition = localPosition;
+        obj.transform.localRotation = localRotation;
+    }
+
     public void ReturnObstacle(GameObject prefab, GameObject instance)
     {
         instance.SetActive(false);
-        instance.transform.SetParent(transform);
+        instance.transform.SetParent(transform, false);
 
-        if (!_obstaclePool.ContainsKey(prefab))
-            _obstaclePool[prefab] = new Queue<GameObject>();
+        if (!_obstaclePool.TryGetValue(prefab, out Queue<GameObject> queue))
+        {
+            queue = new Queue<GameObject>();
+            _obstaclePool[prefab] = queue;
+        }
 
-        _obstaclePool[prefab].Enqueue(instance);
+        queue.Enqueue(instance);
     }
 
-    // ── Вспомогательный поиск ─────────────────────────────────
     private RoadBiomeData FindBiomeData(int index)
     {
-        foreach (var b in biomes)
-            if (b != null && b.biomeIndex == index) return b;
+        if (biomes == null)
+            return null;
+
+        foreach (RoadBiomeData biome in biomes)
+        {
+            if (biome != null && biome.biomeIndex == index)
+                return biome;
+        }
+
         return null;
+    }
+
+    private GameObject GetFallbackPrefab(int lane)
+    {
+        while (_runtimeFallbackPrefabs.Count <= lane)
+        {
+            _runtimeFallbackPrefabs.Add(CreateFallbackPrefab(_runtimeFallbackPrefabs.Count));
+        }
+
+        return _runtimeFallbackPrefabs[lane];
+    }
+
+    private static GameObject CreateFallbackPrefab(int index)
+    {
+        GameObject obstacle = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        obstacle.name = $"RuntimeObstacle_{index}";
+        obstacle.transform.localScale = new Vector3(1.3f, 1.4f, 1.3f);
+
+        Renderer rendererRef = obstacle.GetComponent<Renderer>();
+        rendererRef.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        rendererRef.receiveShadows = false;
+        rendererRef.sharedMaterial.color = index switch
+        {
+            0 => new Color(0.98f, 0.36f, 0.84f),
+            1 => new Color(1f, 0.49f, 0.34f),
+            _ => new Color(0.94f, 0.82f, 0.26f),
+        };
+
+        obstacle.AddComponent<Obstacle>();
+        obstacle.SetActive(false);
+        DontDestroyOnLoad(obstacle);
+        return obstacle;
     }
 }
